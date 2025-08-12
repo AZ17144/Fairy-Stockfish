@@ -1,0 +1,52 @@
+# 给这个自动化流程起个名字，方便我们自己看
+name: My Windows Build
+
+# 设置触发条件：每当你向这个仓库提交任何改动时，它都会自动运行
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  # 定义一个任务，我们叫它 build
+  build:
+    # 指定这个任务在一台最新的 Windows 虚拟电脑上运行
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        # 为了方便，后续所有命令都在源代码的 src 目录下执行
+        working-directory: src
+
+    steps:
+      # 第1步：把你的代码从仓库下载到这台虚拟电脑上
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      # 第2步：安装编译环境 (在Windows上使用make命令需要这个工具)
+      - name: Setup MSYS2 environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: make mingw-w64-x86_64-gcc
+
+      # 第3步：下载引擎需要的神经网络文件 (.nnue)
+      - name: Download network file
+        shell: msys2 {0}
+        run: make net
+
+      # 第4步：编译引擎！我们编译一个适合你电脑(i3-2130)的AVX版本
+      - name: Build engine with AVX
+        shell: msys2 {0}
+        run: make -j build ARCH=x86-64-avx
+
+      # 第5步：【核心步骤!】把编译好的成品打包上传
+      - name: Upload the final engine
+        uses: actions/upload-artifact@v4
+        with:
+          # 给我们打包好的.zip文件起个名字
+          name: Fairy-Stockfish-for-Windows
+          # 告诉系统去哪里找到我们要打包的文件
+          path: |
+            src/stockfish.exe
+            src/*.nnue
